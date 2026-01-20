@@ -9,7 +9,7 @@ pub type ProcessFn = unsafe extern "C" fn(u32, u32, *mut u8, *const std::os::raw
 /// Dynamically loaded image processing plugin.
 pub struct Plugin {
     _lib: Library,
-    process: Symbol<'static, ProcessFn>,
+    process: ProcessFn,
 }
 
 impl Plugin {
@@ -21,15 +21,28 @@ impl Plugin {
     /// - follows the FFI contract for the function (buffer size, lifetimes, no aliasing),
     /// - remains compatible for the lifetime of the returned `Plugin`.
     pub unsafe fn load(path: &Path) -> Result<Self, libloading::Error> {
-        let lib = Library::new(path)?;
-        let sym: Symbol<ProcessFn> = lib.get(b"process_image")?;
-        let process: Symbol<'static, ProcessFn> = std::mem::transmute(sym);
+        let lib = unsafe {
+            // SAFETY:
+            // - Loading a dynamic library is inherently unsafe because Rust cannot
+            //   verify the library's contents or ABI compatibility.
+            // - The caller must ensure that the library at `path` is trusted and
+            //   exports the expected symbols with the correct ABI.
+            Library::new(path)?
+        };
+        let sym: Symbol<ProcessFn> = unsafe {
+            // SAFETY:
+            // - We just loaded `lib`, and it is kept alive inside `Plugin`.
+            // - The caller must ensure the library exports `process_image` with the exact `ProcessFn`
+            //   signature and ABI; otherwise using the resulting function pointer would be UB.
+            lib.get(b"process_image")?
+        };
+        let process: ProcessFn = *sym;
 
         Ok(Self { _lib: lib, process })
     }
 
     /// Returns a reference to the plugin's image processing function pointer.
-    pub fn process_ptr(&self) -> &Symbol<'static, ProcessFn> {
-        &self.process
+    pub fn process_ptr(&self) -> ProcessFn {
+        self.process
     }
 }

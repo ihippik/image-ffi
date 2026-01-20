@@ -54,8 +54,10 @@ fn main() -> Result<(), AppError> {
     }
 
     let params_bytes = std::fs::read(&args.params)?;
-    let params_str = std::str::from_utf8(&params_bytes).map_err(|_| AppError::InvalidParamsUtf8)?;
-    let params_c = CString::new(params_str).unwrap_or_else(|_| CString::new("").unwrap());
+    let params_str =
+        std::str::from_utf8(&params_bytes).map_err(|_| AppError::InvalidParamsUtf8)?;
+    let params_c =
+        CString::new(params_str).map_err(|_| AppError::InvalidParamsNul)?;
 
     let img = image::open(&args.input)?;
     let rgba = img.to_rgba8();

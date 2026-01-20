@@ -30,4 +30,9 @@ pub enum AppError {
     /// Params file contains invalid UTF-8 data.
     #[error("Invalid UTF-8 in params file")]
     InvalidParamsUtf8,
+
+    /// Parameters file contains a NUL (`\0`) byte, which makes it invalid for
+    /// conversion into a C-compatible string required by the plugin FFI.
+    #[error("Params contain NUL byte")]
+    InvalidParamsNul,
 }
