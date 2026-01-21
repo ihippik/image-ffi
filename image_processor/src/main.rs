@@ -12,11 +12,11 @@ use tracing_subscriber::{fmt, EnvFilter};
 struct Args {
     /// path to input PNG
     #[arg(long)]
-    input: String,
+    input: PathBuf,
 
     /// path to output PNG
     #[arg(long)]
-    output: String,
+    output: PathBuf,
 
     /// plugin name without extension (e.g. mirror_plugin or blur_plugin)
     #[arg(long)]
@@ -24,7 +24,7 @@ struct Args {
 
     /// path to params text file
     #[arg(long)]
-    params: String,
+    params: PathBuf,
 
     /// directory with plugins (default target/debug)
     #[arg(long, default_value = "target/debug")]
@@ -47,10 +47,10 @@ fn main() -> Result<(), AppError> {
     let args = Args::parse();
 
     if !Path::new(&args.input).exists() {
-        return Err(AppError::MissingInput(args.input));
+        return Err(AppError::MissingInput(args.input.display().to_string()));
     }
     if !Path::new(&args.params).exists() {
-        return Err(AppError::MissingParams(args.params));
+        return Err(AppError::MissingParams(args.params.display().to_string()));
     }
 
     let params_bytes = std::fs::read(&args.params)?;
@@ -67,11 +67,17 @@ fn main() -> Result<(), AppError> {
     let mut plugin_path = PathBuf::from(&args.plugin_path);
     plugin_path.push(lib_filename(&args.plugin));
 
-    if !plugin_path.exists() {
+    if !plugin_path.exists(){
         return Err(AppError::MissingPlugin(plugin_path.display().to_string()));
     }
 
-    tracing::info!(width, height,input_file=args.input,plugin=plugin_path.display().to_string(),"image processing..");
+    tracing::info!(
+        width,
+        height,
+        input_file=args.input.display().to_string(),
+        plugin=plugin_path.display().to_string(),
+        "image processing.."
+    );
 
     // SAFETY:
     // - We only load from a path we constructed and checked exists.
@@ -99,7 +105,7 @@ fn main() -> Result<(), AppError> {
         ImageBuffer::from_raw(width, height, data).expect("Invalid RGBA buffer length");
     out.save(&args.output)?;
 
-    tracing::info!(output_file=args.output, "output file saved");
+    tracing::info!(output_file=args.output.display().to_string(), "output file saved");
 
     Ok(())
 }
