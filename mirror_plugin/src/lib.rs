@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr};
 use std::os::raw::c_char;
 use serde::Deserialize;
 
@@ -108,5 +108,56 @@ fn mirror_left_right_in_place(width: usize, height: usize, buf: &mut [u8]) {
             buf.swap(left + 2, right + 2);
             buf.swap(left + 3, right + 3);
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::CString;
+    #[test]
+    fn test_horizontal_flip() {
+        let mut buf = vec![
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 0, 255,
+        ];
+        let params_str = CString::new("horizontal = true\nvertical = false").unwrap();
+        let result = process_image(2, 2, buf.as_mut_ptr(), params_str.as_ptr());
+
+        assert_eq!(result, 0, "Plugin should return 0 (success)");
+
+        let expected = vec![
+            0, 0, 255, 255, 255, 255, 0, 255,
+            255, 0, 0, 255, 0, 255, 0, 255,
+        ];
+
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_vertical_mirror() {
+        let mut buf = vec![
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 0, 255,
+        ];
+        let params_str = CString::new("horizontal = false\nvertical = true").unwrap();
+        let result = process_image(2, 2, buf.as_mut_ptr(), params_str.as_ptr());
+
+        assert_eq!(result, 0, "Plugin should return 0 (success)");
+
+        let expected = vec![
+            0, 255, 0, 255, 255, 0, 0, 255,
+            255, 255, 0, 255, 0, 0, 255, 255,
+        ];
+
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn test_null_buffer() {
+        let params_str = CString::new("horizontal = true").unwrap();
+        let result = process_image(2, 2, std::ptr::null_mut(), params_str.as_ptr());
+        assert_eq!(result, 1);
     }
 }
