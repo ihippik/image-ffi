@@ -30,7 +30,11 @@ pub extern "C" fn process_image(
 
     let w = width as usize;
     let h = height as usize;
-    let len = w.saturating_mul(h).saturating_mul(4);
+    let len = w.checked_mul(h).and_then(|wh| wh.checked_mul(4));
+
+    let Some(total_len) = len else {
+        return;
+    };
 
     // SAFETY:
     // - We checked `rgba_data` is not null above.
@@ -39,7 +43,7 @@ pub extern "C" fn process_image(
     // - `u8` has alignment 1, so alignment requirements are trivially satisfied.
     // - No other mutable references to this buffer may exist during this call
     //   (caller must ensure no aliasing).
-    let buf = unsafe { std::slice::from_raw_parts_mut(rgba_data, len) };
+    let buf = unsafe { std::slice::from_raw_parts_mut(rgba_data, total_len) };
 
     blur_in_place(w, h, buf, radius, iterations);
 }
