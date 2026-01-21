@@ -35,11 +35,11 @@ The project uses `tracing` for structured logging. Log levels and filters can be
 The following command applies the `blur_plugin` to an input PNG image using parameters from a text file and writes the result to the specified output path:
 
 ```bash
-cargo run -p app -- \
-  --input examples/input.png \
-  --output examples/output.png \
-  --plugin blur_plugin \
-  --params examples/params.txt \
+cargo run -p image_processor -- \
+  --input input.png \
+  --output out.png \
+  --plugin mirror_plugin \
+  --params params_mirror.txt \
   --plugin-path target/debug
 ```
 

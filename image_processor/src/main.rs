@@ -53,9 +53,8 @@ fn main() -> Result<(), AppError> {
         return Err(AppError::MissingParams(args.params.display().to_string()));
     }
 
-    let params_bytes = std::fs::read(&args.params)?;
     let params_str =
-        std::str::from_utf8(&params_bytes).map_err(|_| AppError::InvalidParamsUtf8)?;
+        std::fs::read_to_string(&args.params).map_err(|_| AppError::InvalidParamsUtf8)?;
     let params_c =
         CString::new(params_str).map_err(|_| AppError::InvalidParamsNul)?;
 
@@ -98,8 +97,12 @@ fn main() -> Result<(), AppError> {
     // - We assume the plugin follows the FFI contract: it will only read/write within the provided
     //   buffer bounds and will not store the pointers for later use.
     unsafe {
-        process(width, height, data.as_mut_ptr(), params_c.as_ptr());
+        let code =process(width, height, data.as_mut_ptr(), params_c.as_ptr());
+        if code != 0 {
+            tracing::error!(code, "plugin failed to process");
+        }
     }
+
 
     let out: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(width, height, data).expect("Invalid RGBA buffer length");

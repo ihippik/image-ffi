@@ -1,5 +1,12 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug)]
+struct Params {
+    horizontal: bool,
+    vertical: bool,
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn process_image(
@@ -7,11 +14,10 @@ pub extern "C" fn process_image(
     height: u32,
     rgba_data: *mut u8,
     params: *const c_char,
-) {
+) -> u32 {
     if rgba_data.is_null() {
-        return;
+        return 1;
     }
-
 
     // SAFETY:
     // - We checked `params` is not NULL.
@@ -27,15 +33,20 @@ pub extern "C" fn process_image(
         }
     };
 
-    let horizontal = get_bool(params_str, "horizontal").unwrap_or(false);
-    let vertical = get_bool(params_str, "vertical").unwrap_or(false);
+    let params: Params = match toml::from_str(&params_str) {
+        Ok(config) => config,
+        Err(_) => {
+            return 1;
+        }
+    };
+
 
     let w = width as usize;
     let h = height as usize;
     let len = w.checked_mul(h).and_then(|wh| wh.checked_mul(4));
 
     let Some(total_len) = len else {
-        return;
+        return 1;
     };
 
     // SAFETY:
@@ -47,30 +58,15 @@ pub extern "C" fn process_image(
     //   while this function runs (no aliasing / no data races).
     let buf = unsafe { std::slice::from_raw_parts_mut(rgba_data, total_len) };
 
-    if horizontal {
+    if params.horizontal {
         flip_top_bottom_in_place(w, h, buf);
     }
 
-    if vertical {
+    if params.vertical {
         mirror_left_right_in_place(w, h, buf);
     }
-}
 
-fn get_bool(s: &str, key: &str) -> Option<bool> {
-    let lower = s.to_lowercase();
-    let key = key.to_lowercase();
-
-    if let Some(pos) = lower.find(&key) {
-        let tail = &lower[pos..];
-        if tail.contains("true") {
-            return Some(true);
-        }
-        if tail.contains("false") {
-            return Some(false);
-        }
-    }
-
-    None
+    0
 }
 
 fn flip_top_bottom_in_place(width: usize, height: usize, buf: &mut [u8]) {

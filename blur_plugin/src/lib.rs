@@ -1,5 +1,12 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug)]
+struct Params {
+    radius: u32,
+    iterations: u32,
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn process_image(
@@ -7,9 +14,9 @@ pub extern "C" fn process_image(
     height: u32,
     rgba_data: *mut u8,
     params: *const c_char,
-) {
+) -> u32{
     if rgba_data.is_null() {
-        return;
+        return 1;
     }
 
     let params_str = unsafe {
@@ -25,15 +32,19 @@ pub extern "C" fn process_image(
         }
     };
 
-    let radius = get_u32(params_str, "radius").unwrap_or(3);
-    let iterations = get_u32(params_str, "iterations").unwrap_or(1);
+    let params: Params = match toml::from_str(&params_str) {
+        Ok(config) => config,
+        Err(_) => {
+            return 1;
+        }
+    };
 
     let w = width as usize;
     let h = height as usize;
     let len = w.checked_mul(h).and_then(|wh| wh.checked_mul(4));
 
     let Some(total_len) = len else {
-        return;
+        return 1;
     };
 
     // SAFETY:
@@ -45,21 +56,9 @@ pub extern "C" fn process_image(
     //   (caller must ensure no aliasing).
     let buf = unsafe { std::slice::from_raw_parts_mut(rgba_data, total_len) };
 
-    blur_in_place(w, h, buf, radius, iterations);
-}
+    blur_in_place(w, h, buf, params.radius, params.iterations);
 
-fn get_u32(s: &str, key: &str) -> Option<u32> {
-    let lower = s.to_lowercase();
-    let key = key.to_lowercase();
-
-    let pos = lower.find(&key)?;
-    let tail = &lower[pos + key.len()..];
-
-    let digits: String = tail.chars().skip_while(|c| !c.is_ascii_digit())
-        .take_while(|c| c.is_ascii_digit())
-        .collect();
-
-    if digits.is_empty() { None } else { digits.parse().ok() }
+    0
 }
 
 fn blur_in_place(width: usize, height: usize, buf: &mut [u8], radius: u32, iterations: u32) {

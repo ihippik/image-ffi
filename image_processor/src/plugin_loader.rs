@@ -4,7 +4,12 @@ use std::path::Path;
 /// FFI function signature exported by image processing plugins.
 ///
 /// The function processes an RGBA8 image buffer in place.
-pub type ProcessFn = unsafe extern "C" fn(u32, u32, *mut u8, *const std::os::raw::c_char);
+pub type ProcessFn = unsafe extern "C" fn(
+    width: u32,
+    height: u32,
+    rgba_data: *mut u8,
+    params: *const std::os::raw::c_char
+) -> u32;
 
 /// Dynamically loaded image processing plugin.
 pub struct Plugin {
